@@ -2,19 +2,18 @@
 #include <omp.h>
 #include <time.h>
 #include <stdlib.h>
+#include <string.h>
 
 void matriz(float *m, char arq[100], int linha, int coluna) {//nessa função faz a inserção de dados na matriz inicial
   int i, j;
   FILE *matriz_real;//cria um ponteiro de arquivo para abrir arquivos
   matriz_real = fopen(arq, "r");//abertura do arquivo para leitura
-  #pragma omp parallel private(i, j) share(matriz_real, m, linha, coluna)
+  #pragma omp parallel private(i, j) shared(matriz_real, m, linha, coluna)
   {
     #pragma omp for
-    {
       for(i = 0; i < linha; i++)
         for(j = 0;j < coluna; j++)
           fscanf(matriz_real,"%lf",&m[(coluna * i) + j]);////matriz inicial recebendo os dados
-    }
   }
   fclose(matriz_real);//fechamento do arquivo
 }
@@ -22,29 +21,27 @@ void matriz(float *m, char arq[100], int linha, int coluna) {//nessa função fa
 void multiplicar(int linha1, int coluna2, int linha2, float *matriz1, float *matriz2, float *matrizAux) {
 
   int i, j, k;
-  #pragma omp parallel private(i, j, k) share(matriz1, matriz2, matrizAux, linha1, linha2, coluna2){
-    #pragma omp for {
+  float somaprod = 0;
+  #pragma omp parallel private(i, j, k) shared(matriz1, matriz2, matrizAux, linha1, linha2, coluna2)
+  {
+    #pragma omp for 
       for(i = 0; i < linha1; i++)
         for(j = 0; j < coluna2; j++){
           somaprod = 0;
           for(k = 0; k < linha2; k++) 
-            somaprod += matriz1[i][k] * matriz2[k][j];
+            somaprod += matriz1[(i* linha2) + k] * matriz2[(k*coluna2) + j];
 
-          matrizAux[i][j] = somaprod;
-        }
+          matrizAux[(i * coluna2) + j] = somaprod;
     }
   }
 }
 
 float somaReducao(int linha, float *matriz) {
   float result = 0;
-  #pragma omp parallel share(result, matriz, linha){
-    #pragma omp for {
-      for(int i = 0; i < linha; i++){
+  #pragma omp parallel shared(result, matriz, linha)
+    #pragma omp for 
+      for(int i = 0; i < linha; i++)
         result += matriz[i];
-      }
-    }
-  }
 }
 
 void main (int argC, char *argV[]){
