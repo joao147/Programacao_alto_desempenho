@@ -27,7 +27,7 @@ void multiplicar(int linha1, int coluna2, int linha2, float *matriz1, float *mat
   //inicia a zona paralela identificando as variáveis compartilhadas e privadas
   #pragma omp parallel private(i, j, k) shared(matriz1, matriz2, matrizAux, linha1, linha2, coluna2)
   {
-    #pragma omp for private(i, j, k, somaprod)//desnecessário
+    #pragma omp for private(i, j, k)//desnecessário
       for(i = 0; i < linha1; i++){
         for(j = 0; j < coluna2; j++){
         matrizAux[(i * coluna2) + j] = 0;
@@ -124,5 +124,5 @@ void main (int argC, char *argV[]){
   //transformando o tempo em segundos
   tempoExecucao = (tempoFinal - tempoInicial) * 1000.0 / CLOCKS_PER_SEC;
 
-  printf("Tempo para a conclusão da soma é de %lf, resultado %f\n", tempoExecucao,resultado);
+  printf("Tempo para a conclusão da soma é de %lf, resultado %.2f\n", tempoExecucao,resultado);
 }
