@@ -1,0 +1,1 @@
+Relatórios estão dentro de cada pasta especificando de qual relatório se trata.
