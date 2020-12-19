@@ -20,21 +20,56 @@ void matriz(float *m, char arq[100], int linha, int coluna) {
 }
 
 //função que faz a multiplição das matrizes
-void multiplicar(int linha1, int coluna2, int linha2, float *matriz1, float *matriz2, float *matrizAux) {
+void multiplicar(int argc, char *argv[], int linha1, int coluna2, int linha2, float *matriz1, float *matriz2, float *matrizAux) {
 
-  int i, j, k;//contadores
+  int i, j, k, y, w, v, rank, numTasks;//contadores
+  MPI_Request reqs[8];
+  MPI_Status stats[8];
 
+  MPI_Init(&argc, &argv);
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  MPI_Comm_size(MPI_COMM_WORLD, &numTasks);
   //inicia a zona paralela identificando as variáveis compartilhadas e privadas
-  {
-    for(i = 0; i < linha1; i++){
-      for(j = 0; j < coluna2; j++){
-        matrizAux[(i * coluna2) + j] = 0;
-          for(k = 0; k < linha2; k++) 
-            matrizAux[(i * coluna2) + j] += matriz1[(i* linha2) + k] * matriz2[(k*coluna2) + j];
-      }
-    }
+
+  int mod = linha1%numTasks;
+  int linhaParcial = (linha1 - mod)/numTasks;
+  
+  if(rank == numTasks - 1) {
+    linhaParcial += mod;
   }
+
+  int sendCount1 = linhaParcial * linha2;
+  int sendCount2 = linha2 * coluna2;
+
+  float *receiveBuff = (float *) malloc(sendCount1*sizeof(float));
+
+  if(rank==0){
+    for(int i=1; i<numTasks; i++)
+      MPI_Isend(matriz2, sendCount2, MPI_FLOAT, i, 1, MPI_COMM_WORLD, reqs[i]);
+  }
+
+  MPI_Scatter(matriz1, sendCount1, MPI_FLOAT, receiveBuff, sendCount1 , MPI_FLOAT,0,MPI_COMM_WORLD); 
+  
+  float *matrizInterna = (float *) malloc(sendCount1*sizeof(float));
+
+  for(i = 0; i <= linhaParcial; i++)
+    for(j = 0; j < coluna2; j++){
+      matrizInterna[(i * coluna2) + j] = 0;
+      for(k = 0; k < linha2; k++) 
+        matrizInterna[(i * coluna2) + j] += receiveBuff[(i* linha2) + k] * matriz2[(k*coluna2) + j];
+    }
+
+  MPI_Waitall(8, reqs, stats);
+
+  MPI_Gather(matrizInterna, sendCount1, MPI_FLOAT, 
+             matrizAux, sendCount1, MPI_FLOAT, 0, MPI_COMM_WORLD);
+
+  free(receiveBuff);
+  free(matrizInterna);
+
+  MPI_Finalize();
 }
+
 
 //função que faz a soma pela redução da matriz D
 float somaReducao(int linha, float *matriz) {
@@ -65,9 +100,9 @@ void imprimir(float *resultado, int linhas, char arq[100]){
 void main (int argC, char *argV[]){
 
   //valores que o programa recebe
-  int y = atof(argV[1]);
-  int w = atof(argV[2]);
-  int v = atof(argV[3]);
+  int y = atoi(argV[1]);
+  int w = atoi(argV[2]);
+  int v = atoi(argV[3]);
 
   //matrizes
   float *A, *B, *C, *D, *auxAB;
@@ -108,8 +143,8 @@ void main (int argC, char *argV[]){
   tempoInicial = clock();//iniciando a contagem do tempo
 
   //chamada para a multiplicação das matrizes
-  multiplicar(y, v, w, A, B, auxAB);
-  multiplicar(y, 1, v, auxAB, C, D);
+  multiplicar(argC, argV, y, v, w, A, B, auxAB);
+  multiplicar(argC, argV, y, 1, v, auxAB, C, D);
 
   //chamada para a soma pela redução da matriz D
   resultado = somaReducao(y, D);
