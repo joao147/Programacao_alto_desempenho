@@ -20,18 +20,13 @@ void matriz(float *m, char arq[100], int linha, int coluna) {
 }
 
 //função que faz a multiplição das matrizes
-void multiplicar(int linha1, int coluna2, int linha2, float *matriz1, float *matriz2, float *matrizAux) {
+void multiplicar(int linha1, int coluna2, int linha2, float *matriz1, float *matriz2, float *matrizAux, int rank, int numTasks) {
 
-  int i, j, k, y, w, v, rank, numTasks;//contadores
-  MPI_Request reqs[8];
-  MPI_Status stats[8];
+  int i, j, k, y, w, v;//contadores
+ 
+  MPI_Status stats[numTasks];
 
-  MPI_Init(NULL, NULL);
-  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-  MPI_Comm_size(MPI_COMM_WORLD, &numTasks);
-  //inicia a zona paralela identificando as variáveis compartilhadas e privadas
-
-  int mod = linha1%numTasks;
+  int mod = linha1%numTasks;//pega o resto
   int linhaParcial = (linha1 - mod)/numTasks;
   
   if(rank == numTasks - 1) {
@@ -76,7 +71,6 @@ void multiplicar(int linha1, int coluna2, int linha2, float *matriz1, float *mat
     MPI_Send(matrizInterna, sendCount1, MPI_FLOAT, 0, 1, MPI_COMM_WORLD);
   }
 
-  MPI_Finalize();
 }
 
 
@@ -116,6 +110,13 @@ void main (int argC, char *argV[]){
   //matrizes
   float *A, *B, *C, *D, *auxAB;
 
+  //Alocando as matrizes
+  A = (float*) malloc(y * w * sizeof(float));
+  B = (float*) malloc(w * v * sizeof(float));
+  C = (float*) malloc(v * 1 * sizeof(float));
+  D = (float*) malloc(y * 1 * sizeof(float));
+  auxAB = (float*) malloc(y * v * sizeof(float));
+
   float resultado = 0;
 
   //contadores de tempo
@@ -123,43 +124,42 @@ void main (int argC, char *argV[]){
   clock_t tempoFinal;
   double tempoExecucao;
 
-  //recebe os path para os arquivos para extração e armazenamento dos dados
-  char *arq_A = argV[4];
-  char *arq_B = argV[5];
-  char *arq_C = argV[6];
-  char *arq_D = argV[7];
+  MPI_Init(NULL, NULL);
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  MPI_Comm_size(MPI_COMM_WORLD, &numTasks);
+  if(rank == 0){
+    //recebe os path para os arquivos para extração e armazenamento dos dados
+    char *arq_A = argV[4];
+    char *arq_B = argV[5];
+    char *arq_C = argV[6];
+    char *arq_D = argV[7];
 
-  //para tirar o "\n" das strings
-  arq_A[strcspn(arq_A, "\n")] = 0;
-  arq_B[strcspn(arq_B, "\n")] = 0;
-  arq_C[strcspn(arq_C, "\n")] = 0;
-  arq_D[strcspn(arq_D, "\n")] = 0;
+    //para tirar o "\n" das strings
+    arq_A[strcspn(arq_A, "\n")] = 0;
+    arq_B[strcspn(arq_B, "\n")] = 0;
+    arq_C[strcspn(arq_C, "\n")] = 0;
+    arq_D[strcspn(arq_D, "\n")] = 0;
 
-  //Alocando as matrizes
-  A = (float*) malloc(y * w * sizeof(float));
-  B = (float*) malloc(w * v * sizeof(float));
-  C = (float*) malloc(v * 1 * sizeof(float));
-  D = (float*) malloc(y * 1 * sizeof(float));
+    //lendo os dados dos arquivos .dat
+    matriz(A, arq_A, y, w);
+    matriz(B, arq_B, w, v);
+    matriz(C, arq_C, v, 1);
+  }
 
-  //alocando a matriz auxiliar
-  auxAB = (float*) malloc(y * v * sizeof(float));
-
-  //lendo os dados dos arquivos .dat
-  matriz(A, arq_A, y, w);
-  matriz(B, arq_B, w, v);
-  matriz(C, arq_C, v, 1);
 
   tempoInicial = clock();//iniciando a contagem do tempo
 
   //chamada para a multiplicação das matrizes
-  multiplicar(y, v, w, A, B, auxAB);
-  multiplicar(y, 1, v, auxAB, C, D);
+  multiplicar(y, v, w, A, B, auxAB, rank, numTasks);
+  multiplicar(y, 1, v, auxAB, C, D, rank, numTasks);
 
   //chamada para a soma pela redução da matriz D
   resultado = somaReducao(y, D);
 
   tempoFinal = clock();//finalização da contagem do tempo
   
+  MPI_Finalize();
+
   imprimir(D,y,arq_D);//escrita dos dados no arqD.dat
 
   //transformando o tempo em segundos
