@@ -22,12 +22,12 @@ void matriz(float *m, char arq[100], int linha, int coluna) {
 //função que faz a multiplição das matrizes
 void multiplicar(int linha1, int coluna2, int linha2, float *matriz1, float *matriz2, float *matrizAux, int rank, int numTasks) {
 
-  int i, j, k, y, w, v;//contadores
+  int i, j, k;//contadores
  
   MPI_Status stats[numTasks];
 
-  int mod = linha1%numTasks;//pega o resto
-  int linhaParcial = (linha1 - mod)/numTasks;
+  int mod = linha1%(numTasks-1);//pega o resto
+  int linhaParcial = (linha1 - mod)/(numTasks-1);
   
   if(rank == numTasks - 1) {
     linhaParcial += mod;
@@ -36,30 +36,28 @@ void multiplicar(int linha1, int coluna2, int linha2, float *matriz1, float *mat
   int sendCount1 = linhaParcial * linha2;
   int sendCount2 = linha2 * coluna2;
 
-  float *receiveBuff1 = (float *) malloc(sendCount1*sizeof(float));
-  float *receiveBuff2 = (float *) malloc(sendCount2*sizeof(float));
+  printf("%d",rank);
   
   if(rank == 0){
-    printf("entrei no for de send\n");
     for(int i=1; i < numTasks; i++){
       MPI_Send(matriz1, sendCount1, MPI_FLOAT, i, 1, MPI_COMM_WORLD);
-      printf("send1\n");
-
       MPI_Send(matriz2, sendCount2, MPI_FLOAT, i, 1, MPI_COMM_WORLD);
-      printf("send2\n");
     }
-
-    printf("entrei no for de recv\n");
     for(int i=1; i < numTasks; i++){
-      printf("recv\n");
       MPI_Recv(matrizAux, sendCount1, MPI_FLOAT, i, 1, MPI_COMM_WORLD, &stats[rank]);
     }
 
   }else {
+    printf("agr vai");
     float *matrizInterna = (float *) malloc(sendCount1*sizeof(float));
+    float *receiveBuff1 = (float *) malloc(sendCount1*sizeof(float));
+    float *receiveBuff2 = (float *) malloc(sendCount2*sizeof(float));
 
     MPI_Recv(receiveBuff1, sendCount1, MPI_FLOAT, 0, 1, MPI_COMM_WORLD, &stats[rank]);
+    printf("recebi1");
+
     MPI_Recv(receiveBuff2, sendCount2, MPI_FLOAT, 0, 1, MPI_COMM_WORLD, &stats[rank]);
+    printf("recebi2");
 
     for(i = 0; i < linhaParcial; i++)
       for(j = 0; j < coluna2; j++){
@@ -69,10 +67,12 @@ void multiplicar(int linha1, int coluna2, int linha2, float *matriz1, float *mat
       }
 
     MPI_Send(matrizInterna, sendCount1, MPI_FLOAT, 0, 1, MPI_COMM_WORLD);
+
+    free(matrizInterna);
+    free(receiveBuff1);
+    free(receiveBuff2);
   }
-
 }
-
 
 //função que faz a soma pela redução da matriz D
 float somaReducao(int linha, float *matriz) {
@@ -109,6 +109,7 @@ void main (int argC, char *argV[]){
 
   //matrizes
   float *A, *B, *C, *D, *auxAB;
+  int rank, numTasks;
 
   //Alocando as matrizes
   A = (float*) malloc(y * w * sizeof(float));
@@ -119,21 +120,24 @@ void main (int argC, char *argV[]){
 
   float resultado = 0;
 
+  //recebe os path para os arquivos para extração e armazenamento dos dados
+  char *arq_A = argV[4];
+  char *arq_B = argV[5];
+  char *arq_C = argV[6];
+  char *arq_D = argV[7];
+
   //contadores de tempo
   clock_t tempoInicial;
   clock_t tempoFinal;
   double tempoExecucao;
 
-  MPI_Init(NULL, NULL);
+  MPI_Init(&argC, &argV);
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   MPI_Comm_size(MPI_COMM_WORLD, &numTasks);
-  if(rank == 0){
-    //recebe os path para os arquivos para extração e armazenamento dos dados
-    char *arq_A = argV[4];
-    char *arq_B = argV[5];
-    char *arq_C = argV[6];
-    char *arq_D = argV[7];
 
+  printf("oi%d",rank);
+
+  if(rank == 0){
     //para tirar o "\n" das strings
     arq_A[strcspn(arq_A, "\n")] = 0;
     arq_B[strcspn(arq_B, "\n")] = 0;
@@ -146,7 +150,6 @@ void main (int argC, char *argV[]){
     matriz(C, arq_C, v, 1);
   }
 
-
   tempoInicial = clock();//iniciando a contagem do tempo
 
   //chamada para a multiplicação das matrizes
@@ -154,13 +157,15 @@ void main (int argC, char *argV[]){
   multiplicar(y, 1, v, auxAB, C, D, rank, numTasks);
 
   //chamada para a soma pela redução da matriz D
-  resultado = somaReducao(y, D);
+  if(rank == 0){
+    resultado = somaReducao(y, D);
+  }
 
   tempoFinal = clock();//finalização da contagem do tempo
   
   MPI_Finalize();
 
-  imprimir(D,y,arq_D);//escrita dos dados no arqD.dat
+  imprimir(D, y, arq_D);//escrita dos dados no arqD.dat
 
   //transformando o tempo em segundos
   tempoExecucao = (tempoFinal - tempoInicial) * 1000.0 / CLOCKS_PER_SEC;
