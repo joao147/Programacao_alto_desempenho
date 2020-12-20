@@ -36,7 +36,6 @@ void multiplicar(int linha1, int coluna2, int linha2, float *matriz1, float *mat
   int sendCount1 = linhaParcial * linha2;
   int sendCount2 = linha2 * coluna2;
 
-  printf("%d",rank);
   
   if(rank == 0){
     for(int i=1; i < numTasks; i++){
@@ -54,7 +53,9 @@ void multiplicar(int linha1, int coluna2, int linha2, float *matriz1, float *mat
 
     MPI_Recv(receiveBuff1, sendCount1, MPI_FLOAT, 0, 1, MPI_COMM_WORLD, &stats[rank]);
 
+
     MPI_Recv(receiveBuff2, sendCount2, MPI_FLOAT, 0, 1, MPI_COMM_WORLD, &stats[rank]);
+
 
     for(i = 0; i < linhaParcial; i++)
       for(j = 0; j < coluna2; j++){
@@ -97,16 +98,15 @@ void imprimir(float *resultado, int linhas, char arq[100]){
 	fclose(matriz);//fechamento do arquivo
 }
 
-int main (int argC, char *argV[]){
+void main (int argC, char *argV[]){
 
   //valores que o programa recebe
-  int y = atof(argV[1]);
-  int w = atof(argV[2]);
-  int v = atof(argV[3]);
+  int y = atoi(argV[1]);
+  int w = atoi(argV[2]);
+  int v = atoi(argV[3]);
 
   //matrizes
   float *A, *B, *C, *D, *auxAB;
-  int rank, numTasks;
 
   //Alocando as matrizes
   A = (float*) malloc(y * w * sizeof(float));
@@ -129,20 +129,13 @@ int main (int argC, char *argV[]){
   double tempoExecucao;
 
   MPI_Init(&argC, &argV);
-  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-  MPI_Comm_size(MPI_COMM_WORLD, &numTasks);
-<<<<<<< HEAD
-  
-  if(rank == 0){
-    //recebe os path para os arquivos para extração e armazenamento dos dados
-    char *arq_A = argV[4];
-    char *arq_B = argV[5];
-    char *arq_C = argV[6];
-    char *arq_D = argV[7];
-=======
->>>>>>> 1f614355ba4d0b321bf9b9d4f19a24abf67bb707
 
-  printf("oi%d",rank);
+  int rank, numTasks;
+
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+  MPI_Comm_size(MPI_COMM_WORLD, &numTasks);
+
 
   if(rank == 0){
     //para tirar o "\n" das strings
@@ -163,13 +156,8 @@ int main (int argC, char *argV[]){
   multiplicar(y, v, w, A, B, auxAB, rank, numTasks);
   multiplicar(y, 1, v, auxAB, C, D, rank, numTasks);
 
-<<<<<<< HEAD
-  if(rank == 0){
-    //chamada para a soma pela redução da matriz D
-=======
   //chamada para a soma pela redução da matriz D
   if(rank == 0){
->>>>>>> 1f614355ba4d0b321bf9b9d4f19a24abf67bb707
     resultado = somaReducao(y, D);
   }
 
@@ -183,6 +171,4 @@ int main (int argC, char *argV[]){
   tempoExecucao = (tempoFinal - tempoInicial) * 1000.0 / CLOCKS_PER_SEC;
 
   printf("Tempo para a conclusão da soma é de %lf, resultado %f\n", tempoExecucao,resultado);
-
-  return 0;
 }
