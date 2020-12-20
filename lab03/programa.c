@@ -103,9 +103,9 @@ void imprimir(float *resultado, int linhas, char arq[100]){
 void main (int argC, char *argV[]){
 
   //valores que o programa recebe
-  int y = atoi(argV[1]);
-  int w = atoi(argV[2]);
-  int v = atoi(argV[3]);
+  int y = atof(argV[1]);
+  int w = atof(argV[2]);
+  int v = atof(argV[3]);
 
   //matrizes
   float *A, *B, *C, *D, *auxAB;
@@ -127,6 +127,7 @@ void main (int argC, char *argV[]){
   MPI_Init(NULL, NULL);
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   MPI_Comm_size(MPI_COMM_WORLD, &numTasks);
+  
   if(rank == 0){
     //recebe os path para os arquivos para extração e armazenamento dos dados
     char *arq_A = argV[4];
@@ -153,8 +154,10 @@ void main (int argC, char *argV[]){
   multiplicar(y, v, w, A, B, auxAB, rank, numTasks);
   multiplicar(y, 1, v, auxAB, C, D, rank, numTasks);
 
-  //chamada para a soma pela redução da matriz D
-  resultado = somaReducao(y, D);
+  if(rank == 0){
+    //chamada para a soma pela redução da matriz D
+    resultado = somaReducao(y, D);
+  }
 
   tempoFinal = clock();//finalização da contagem do tempo
   
