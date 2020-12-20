@@ -97,7 +97,7 @@ void imprimir(float *resultado, int linhas, char arq[100]){
 	fclose(matriz);//fechamento do arquivo
 }
 
-void main (int argC, char *argV[]){
+int main (int argC, char *argV[]){
 
   //valores que o programa recebe
   int y = atof(argV[1]);
@@ -183,4 +183,6 @@ void main (int argC, char *argV[]){
   tempoExecucao = (tempoFinal - tempoInicial) * 1000.0 / CLOCKS_PER_SEC;
 
   printf("Tempo para a conclusão da soma é de %lf, resultado %f\n", tempoExecucao,resultado);
+
+  return 0;
 }
